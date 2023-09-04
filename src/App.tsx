@@ -1,20 +1,23 @@
 import React, { useState, useEffect } from "react";
 import AsyncAwait from "./components/asyncAwait";
-import apiClient , { CanceledError } from "./services/api-client"
+import apiClient, { CanceledError } from "./services/api-client";
+import Product from "./components/productsList";
+import UserService , {User} from "./services/userService"
+
+
 
 const App = () => {
+  const [category, setCategory] = useState("");
   const [users, setUsers] = useState<Array<{ id: number; name: string }>>([]);
   const [error, setError] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
     // Fetch the list of users when the component is first rendered
-    const Controller = new AbortController();
     setIsLoading(true);
-    apiClient
-      .get("/users")
-      .then(({ data }) => {
-        setUsers(data);
+    const {request , cancel} = UserService.getAllUsers()
+      request.then((res) => {
+        setUsers(res.data);
         setIsLoading(false);
       })
       .catch((err) => {
@@ -22,9 +25,7 @@ const App = () => {
         setError(err.message);
         setIsLoading(false);
       });
-      // .finally(() => {
-      //   setIsLoading(false)
-      // })
+      return () => cancel()
   }, []);
   const AddUser = () => {
     const originalUsers = [...users];
@@ -37,17 +38,14 @@ const App = () => {
         setError(err.message);
         setUsers(originalUsers);
       });
-  };
-
-  const deleteUser = (id) => {
+  }
+  const deleteUser = (user : User) => {
     const originalUsers = [...users];
-    setUsers(users.filter((user) => user.id !== id));
-    apiClient
-      .delete(`/users/${id}`)
-      .catch((err) => {
-        setError(err.message);
-        setUsers(originalUsers);
-      });
+    setUsers(users.filter((u) => u.id !== user.id));
+    UserService.deleteUser(user.id).catch((err) => {
+      setError(err.message);
+      setUsers(originalUsers);
+    });
     console.log("Deleted! haha", users);
   };
 
@@ -55,15 +53,10 @@ const App = () => {
     const originalUser = [...users];
     const updatedUser = { ...user, name: user.name + "!" };
     setUsers(users.map((u) => (u.id === user.id ? updatedUser : u)));
-    apiClient
-      .patch(
-        "/users/" + user.id,
-        updatedUser
-      )
-      .catch((err) => {
-        setError(err.message);
-        setUsers(originalUser);
-      });
+    apiClient.patch("/users/" + user.id, updatedUser).catch((err) => {
+      setError(err.message);
+      setUsers(originalUser);
+    });
   };
 
   return (
@@ -73,7 +66,7 @@ const App = () => {
       <button className="btn btn-primary mb-3" onClick={AddUser}>
         Add
       </button>
-      <ul className="list-group">
+      <ul className="list-group mb-10">
         {users.map((user) => (
           <li
             key={user.id}
@@ -98,6 +91,17 @@ const App = () => {
           </li>
         ))}
       </ul>
+      <select
+        name=""
+        className="form-select mb-7"
+        id=""
+        onChange={(event) => setCategory(event.target.value)}
+      >
+        <option value=""></option>
+        <option value="Clothing">Clothing</option>
+        <option value="Household">Household</option>
+      </select>
+      <Product category={category} />
     </div>
   );
 };
